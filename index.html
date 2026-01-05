@@ -315,7 +315,7 @@
 
     <script>
         let map;
-        let satelliteMode = false;
+        let satelliteMode = true; // Default to satellite view
         let currentExaggeration = 2.5;
 
         // Initialize the map with enhanced 3D terrain using Terrarium tiles
@@ -363,7 +363,7 @@
                         type: 'raster',
                         source: 'osm',
                         layout: {
-                            visibility: 'visible'
+                            visibility: 'none' // Hidden by default, satellite is default
                         },
                         paint: {
                             // Increase brightness and contrast for better visibility on 3D terrain
@@ -373,13 +373,13 @@
                             'raster-saturation': 0.2
                         }
                     },
-                    // Satellite imagery layer - will drape over 3D terrain
+                    // Satellite imagery layer - will drape over 3D terrain (DEFAULT)
                     {
                         id: 'satellite',
                         type: 'raster',
                         source: 'satellite',
                         layout: {
-                            visibility: 'none'
+                            visibility: 'visible' // Default view
                         },
                         paint: {
                             // Enhanced contrast and saturation for vibrant satellite imagery
@@ -439,10 +439,16 @@
             console.log('✅ Map loaded');
             terrainLoaded = true;
 
+            // Set button state to reflect satellite mode is active
+            const btn = document.getElementById('satellite-btn');
+            btn.textContent = 'Map View';
+            btn.classList.add('active');
+
             setTimeout(() => {
                 document.getElementById('loading').style.display = 'none';
                 console.log('🏔️ 3D Terrain is active with ' + currentExaggeration + 'x exaggeration');
                 console.log('🎨 Textures are draped over terrain geometry');
+                console.log('🛰️ Satellite mode is default');
             }, 1500);
         });
 
