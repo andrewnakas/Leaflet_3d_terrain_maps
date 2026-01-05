@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Terrain Map - Leaflet</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- MapLibre GL CSS for 3D support -->
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- MapLibre GL JS for 3D terrain -->
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+    <!-- Leaflet-MapLibre-GL plugin to integrate 3D into Leaflet -->
+    <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.20/leaflet-maplibre-gl.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            max-width: 280px;
+            z-index: 1000;
+        }
+
+        .map-overlay h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .map-overlay p {
+            margin: 5px 0;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .leaflet-badge {
+            background: #0078A8;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            padding: 10px 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            background: #0078A8;
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+            touch-action: manipulation;
+        }
+
+        .btn:hover {
+            background: #005a7d;
+        }
+
+        .btn:active {
+            background: #004963;
+        }
+
+        .btn-toggle {
+            background: #28a745;
+        }
+
+        .btn-toggle:hover {
+            background: #218838;
+        }
+
+        .btn-toggle.disabled {
+            background: #dc3545;
+        }
+
+        .btn-toggle.disabled:hover {
+            background: #c82333;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 600px) {
+            .map-overlay {
+                top: 5px;
+                left: 5px;
+                right: 5px;
+                max-width: none;
+                padding: 10px;
+            }
+
+            .map-overlay h2 {
+                font-size: 16px;
+            }
+
+            .map-overlay p {
+                font-size: 12px;
+            }
+
+            .controls {
+                bottom: 10px;
+                left: 5px;
+                right: 5px;
+                transform: none;
+                padding: 8px;
+            }
+
+            .btn {
+                padding: 10px 12px;
+                font-size: 12px;
+                flex: 1;
+                min-width: 80px;
+            }
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0078A8;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Leaflet control styling */
+        .leaflet-control-layers {
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p style="margin-top: 10px; text-align: center;">Loading 3D Map...</p>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="map-overlay">
+        <h2>🗺️ 3D Terrain Map</h2>
+        <span class="leaflet-badge">Leaflet.js</span>
+        <p><strong>Features:</strong></p>
+        <p>• Full 3D terrain visualization</p>
+        <p>• Leaflet API compatible</p>
+        <p>• Touch-enabled controls</p>
+        <p>• Real-time elevation data</p>
+        <p>• Mobile optimized</p>
+    </div>
+
+    <div class="controls">
+        <button class="btn" onclick="flyToGrandCanyon()">Grand Canyon</button>
+        <button class="btn" onclick="flyToEverest()">Mt. Everest</button>
+        <button class="btn" onclick="flyToAlps()">Swiss Alps</button>
+        <button class="btn" onclick="flyToYosemite()">Yosemite</button>
+        <button class="btn btn-toggle" id="toggle3d" onclick="toggle3DMode()">3D: ON</button>
+    </div>
+
+    <script>
+        let map;
+        let is3DMode = true;
+        let maplibreLayer;
+
+        // MapLibre GL style with 3D terrain
+        const maplibreStyle = {
+            version: 8,
+            sources: {
+                'osm': {
+                    type: 'raster',
+                    tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                    tileSize: 256,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                },
+                'terrainSource': {
+                    type: 'raster-dem',
+                    url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
+                    tileSize: 256
+                },
+                'hillshadeSource': {
+                    type: 'raster-dem',
+                    url: 'https://demotiles.maplibre.org/terrain-tiles/tiles.json',
+                    tileSize: 256
+                }
+            },
+            layers: [
+                {
+                    id: 'osm',
+                    type: 'raster',
+                    source: 'osm'
+                },
+                {
+                    id: 'hills',
+                    type: 'hillshade',
+                    source: 'hillshadeSource',
+                    layout: { visibility: 'visible' },
+                    paint: { 'hillshade-shadow-color': '#473B24' }
+                }
+            ],
+            terrain: {
+                source: 'terrainSource',
+                exaggeration: 1.5
+            }
+        };
+
+        // Initialize Leaflet map
+        map = L.map('map', {
+            center: [36.1, -111.5], // Grand Canyon
+            zoom: 11,
+            zoomControl: true,
+            attributionControl: true
+        });
+
+        // Add 3D MapLibre GL layer to Leaflet
+        maplibreLayer = L.maplibreGL({
+            style: maplibreStyle,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Add additional Leaflet controls
+        L.control.scale({
+            imperial: true,
+            metric: true
+        }).addTo(map);
+
+        // Add layer control for switching map types
+        const baseLayers = {
+            "3D Terrain": maplibreLayer
+        };
+
+        // Optional: Add standard Leaflet tile layer as alternative
+        const standardOSM = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        });
+
+        const overlayLayers = {
+            "Standard 2D": standardOSM
+        };
+
+        L.control.layers(baseLayers, overlayLayers).addTo(map);
+
+        // Hide loading indicator when map is loaded
+        setTimeout(() => {
+            document.getElementById('loading').style.display = 'none';
+        }, 2000);
+
+        // Location presets using Leaflet's flyTo
+        function flyToGrandCanyon() {
+            map.flyTo([36.1, -111.5], 13, {
+                duration: 2,
+                easeLinearity: 0.25
+            });
+
+            // Set 3D pitch via MapLibre if in 3D mode
+            if (is3DMode && maplibreLayer._glMap) {
+                setTimeout(() => {
+                    maplibreLayer._glMap.easeTo({
+                        pitch: 70,
+                        bearing: -20,
+                        duration: 2000
+                    });
+                }, 500);
+            }
+        }
+
+        function flyToEverest() {
+            map.flyTo([27.988, 86.925], 12, {
+                duration: 2,
+                easeLinearity: 0.25
+            });
+
+            if (is3DMode && maplibreLayer._glMap) {
+                setTimeout(() => {
+                    maplibreLayer._glMap.easeTo({
+                        pitch: 75,
+                        bearing: 30,
+                        duration: 2000
+                    });
+                }, 500);
+            }
+        }
+
+        function flyToAlps() {
+            map.flyTo([46.021, 7.658], 12, {
+                duration: 2,
+                easeLinearity: 0.25
+            });
+
+            if (is3DMode && maplibreLayer._glMap) {
+                setTimeout(() => {
+                    maplibreLayer._glMap.easeTo({
+                        pitch: 70,
+                        bearing: 45,
+                        duration: 2000
+                    });
+                }, 500);
+            }
+        }
+
+        function flyToYosemite() {
+            map.flyTo([37.748, -119.538], 12, {
+                duration: 2,
+                easeLinearity: 0.25
+            });
+
+            if (is3DMode && maplibreLayer._glMap) {
+                setTimeout(() => {
+                    maplibreLayer._glMap.easeTo({
+                        pitch: 65,
+                        bearing: -10,
+                        duration: 2000
+                    });
+                }, 500);
+            }
+        }
+
+        function toggle3DMode() {
+            const btn = document.getElementById('toggle3d');
+
+            if (is3DMode) {
+                // Disable 3D terrain
+                if (maplibreLayer._glMap) {
+                    maplibreLayer._glMap.setTerrain(null);
+                    maplibreLayer._glMap.setPitch(0);
+                }
+                is3DMode = false;
+                btn.textContent = '3D: OFF';
+                btn.classList.add('disabled');
+            } else {
+                // Enable 3D terrain
+                if (maplibreLayer._glMap) {
+                    maplibreLayer._glMap.setTerrain({
+                        source: 'terrainSource',
+                        exaggeration: 1.5
+                    });
+                    maplibreLayer._glMap.setPitch(60);
+                }
+                is3DMode = true;
+                btn.textContent = '3D: ON';
+                btn.classList.remove('disabled');
+            }
+        }
+
+        // Handle orientation changes on mobile
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 100);
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            map.invalidateSize();
+        });
+
+        // Add custom Leaflet markers for famous peaks (optional enhancement)
+        const peakIcon = L.divIcon({
+            className: 'custom-peak-icon',
+            html: '⛰️',
+            iconSize: [30, 30]
+        });
+
+        // You can add markers using standard Leaflet API
+        // Uncomment to add markers:
+        /*
+        L.marker([27.988, 86.925], { icon: peakIcon })
+            .bindPopup('<b>Mt. Everest</b><br>8,849m')
+            .addTo(map);
+
+        L.marker([46.021, 7.658], { icon: peakIcon })
+            .bindPopup('<b>Swiss Alps</b><br>Matterhorn Region')
+            .addTo(map);
+        */
+
+        // Demonstrate Leaflet API compatibility - you can use all standard Leaflet methods
+        map.on('click', function(e) {
+            console.log('Leaflet click event:', e.latlng);
+        });
+
+        map.on('zoomend', function() {
+            console.log('Current zoom level:', map.getZoom());
+        });
+    </script>
+</body>
+</html>
